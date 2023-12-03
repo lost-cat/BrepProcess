@@ -134,7 +134,6 @@ class Loop(SketchBase):
     def from_vector(vec, start_point=None, is_numerical=True):
         all_curves = []
         if start_point is None:
-            # FIXME: explicit for loop can be avoided here
             for i in range(vec.shape[0]):
                 if vec[i][0] == EOS_IDX:
                     start_point = vec[i - 1][1:3]
@@ -176,7 +175,7 @@ class Loop(SketchBase):
         self.children = self.children[start_curve_idx:] + self.children[:start_curve_idx]
 
         # ensure mostly counter-clock wise
-        if isinstance(self.children[0], Circle) or isinstance(self.children[-1], Circle): # FIXME: hard-coded
+        if isinstance(self.children[0], Circle) or isinstance(self.children[-1], Circle):
             return
         start_vec = self.children[0].direction()
         end_vec = self.children[-1].direction(from_start=False)

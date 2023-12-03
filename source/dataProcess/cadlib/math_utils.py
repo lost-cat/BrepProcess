@@ -35,7 +35,7 @@ def cartesian2polar(vec, with_radius=False):
     vec = vec.round(6)
     norm = np.linalg.norm(vec)
     theta = np.arccos(vec[2] / norm) # (0, pi)
-    phi = np.arctan(vec[1] / (vec[0] + 1e-15)) # (-pi, pi) # FIXME: -0.0 cannot be identified here
+    phi = np.arctan(vec[1] / (vec[0] + 1e-15)) # (-pi, pi)
     if not with_radius:
         return np.array([theta, phi])
     else:

@@ -57,7 +57,7 @@ class CoordSystem(object):
 
     def numericalize(self, n=256):
         """NOTE: shall only be called after normalization"""
-        # assert np.max(self.origin) <= 1.0 and np.min(self.origin) >= -1.0 # TODO: origin can be out-of-bound!
+        # assert np.max(self.origin) <= 1.0 and np.min(self.origin) >= -1.0
         self.origin = ((self.origin + 1.0) / 2 * n).round().clip(min=0, max=n-1).astype(np.int)
         tmp = np.array([self._theta, self._phi, self._gamma])
         self._theta, self._phi, self._gamma = ((tmp / np.pi + 1.0) / 2 * n).round().clip(
