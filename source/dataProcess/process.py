@@ -1,12 +1,16 @@
+import json
 import os.path
 
 import h5py
 import numpy as np
 import torch
+import tqdm
 from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Extend.TopologyUtils import TopologyExplorer
+from joblib import Parallel, delayed
 from torch_geometric.utils import to_undirected, add_self_loops
 import torch_geometric.data as data
+from typing import List
 
 from source.dataProcess.dataStructure import FaceInfo, EdgeInfo
 
@@ -26,8 +30,9 @@ def get_edge_infos(topo, face_infos, occ_faces):
     face_adj = np.zeros((len(occ_faces), len(occ_faces)))
     for edge in edges:
         faces = list(topo.faces_from_edge(edge))
-        if len(faces) == 1:
+        if len(faces) != 2:
             continue
+
         edge_info = EdgeInfo(edge, len(edge_infos))
         edge_info.faces = faces
         for face in faces:
@@ -41,7 +46,7 @@ def get_edge_infos(topo, face_infos, occ_faces):
     pass
 
 
-def write_h5file(h5_path, face_infos: list[FaceInfo], edge_infos: list[EdgeInfo]):
+def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
     file = h5py.File(h5_path, 'w')
 
     file.create_dataset("face_normals", data=np.array([face_info.face_normal for face_info in face_infos]))
@@ -73,9 +78,7 @@ def load_h5file(data_id):
 
 def read_step(filepath):
     if not os.path.exists(filepath):
-        print(filepath, "not exists")
-        return None
-
+        raise Exception(filepath, "not exists")
     reader = STEPControl_Reader()
     reader.ReadFile(filepath)
     reader.TransferRoot()
@@ -98,9 +101,6 @@ def read_step(filepath):
     #           face_infos[item.face_hashes[0]].face_normal)
     #
     # print(face_adj)
-    filename = filepath.split('/')[-1].split('.')[0]
-    write_h5file("../../data/h5Path/" + filename + ".h5", filename, list(face_infos.values()),
-                 list(edge_infos.values()))
     # print(len(faces))
     # edges = list(topo_explorer.edges())
     # print(len(edges))
@@ -117,7 +117,7 @@ def read_step(filepath):
     pass
 
 
-INVALID_IDS = []
+INVALID_IDS = ['0074/00745817', '0086/00866760']
 
 
 def process_one(data_id):
@@ -142,17 +142,19 @@ def process_one(data_id):
         print('skip {} in invalid ids'.format(data_id))
         return
 
-    print('processing', data_id)
-
     # Construct the data_id, save_path and step_path
     data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
     save_path = os.path.join(SAVE_DIR, data_id + '.h5')
     step_path = os.path.join(STEP_DIR, data_id + '.step')
 
-    # Read the step file and retrieve face and edge information
-    face_infos, edge_infos = read_step(step_path)
+    # Read the step file and retrieve face and edge information\
+    try:
+        face_infos, edge_infos = read_step(step_path)
+    except Exception:
+        print(Exception)
+        return
 
-    # Create the directory for save_path if it does not exist
+        # Create the directory for save_path if it does not exist
     truck_dir = os.path.dirname(save_path)
     if not os.path.exists(truck_dir):
         os.makedirs(truck_dir)
@@ -167,16 +169,26 @@ STEP_DIR = os.path.join(DATA_DIR, 'step')
 RECORD_FILE = os.path.join(DATA_DIR, 'train_val_test_split.json')
 
 if __name__ == '__main__':
-    attrs, edge_links = load_h5file('0000/00000172')
-    edge_links = to_undirected(torch.tensor(edge_links, dtype=torch.long).t().contiguous())
-    edge_links = add_self_loops(edge_links, num_nodes=attrs.shape[0])
-    data = data.Data(x=torch.tensor(attrs, dtype=torch.float32),
-                     edge_index=edge_links[0])
-    print(data)
-    # process_one('0000/00000172')
+    # attrs, edge_links = load_h5file('0000/00000172')
+    # edge_links = to_undirected(torch.tensor(edge_links, dtype=torch.long).t().contiguous())
+    # edge_links = add_self_loops(edge_links, num_nodes=attrs.shape[0])
+    # data = data.Data(x=torch.tensor(attrs, dtype=torch.float32),
+    #                  edge_index=edge_links[0])
+    # print(data)
+    # process_one('0074/00745817')
     # process_one('0000/00000251')
 
-# edge_links = to_undirected(torch.tensor(edge_links, dtype=torch.long).t().contiguous())
-# edge_links = add_self_loops(edge_links, num_nodes=attrs.shape[0])
-# data = data.Data(x=torch.tensor(attrs, dtype=torch.float32),
-#                  edge_index=edge_links[0])
+    with open(RECORD_FILE, 'r') as f:
+        all_data = json.load(f)
+    pbar = tqdm.tqdm(all_data['train'])
+    for x in pbar:
+        pbar.set_description('processing train' + x)
+        process_one(x)
+    pbar = tqdm.tqdm(all_data['validation'])
+    for x in pbar:
+        pbar.set_description('processing validation' + x)
+        process_one(x)
+    pbar = tqdm.tqdm(all_data['test'])
+    for x in pbar:
+        pbar.set_description('processing test' + x)
+        process_one(x)

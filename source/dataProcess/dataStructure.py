@@ -1,10 +1,12 @@
 from OCC.Core import BRepGProp
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
 from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GeomAbs import GeomAbs_SurfaceType
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Vec, gp_Pnt
+from typing import Tuple
 
 
 def get_face_type(face: TopoDS_Face) -> GeomAbs_SurfaceType:
@@ -37,8 +39,8 @@ def get_face_normal(face: TopoDS_Face):
 
 
 class FaceInfo:
-    face_normal: tuple[float, float, float]
-    centroid: tuple[float, float, float]
+    face_normal: Tuple[float, float, float]
+    centroid: Tuple[float, float, float]
     face_area: float
     face_type: GeomAbs_SurfaceType
 
