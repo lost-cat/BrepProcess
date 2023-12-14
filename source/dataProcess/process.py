@@ -1,4 +1,5 @@
 import json
+import math
 import os.path
 
 import h5py
@@ -13,6 +14,21 @@ import torch_geometric.data as data
 from typing import List
 
 from source.dataProcess.dataStructure import FaceInfo, EdgeInfo
+
+
+def check_data(face_list, edge_list) -> bool:
+    if len(face_list) == 0 or len(edge_list) == 0:
+        return False
+    for face in face_list:
+        for f in face.face_normals:
+            if math.isnan(f) or math.isinf(f):
+                return False
+        for f in face.centroid:
+            if math.isnan(f) or math.isinf(f):
+                return False
+        if math.isnan(face.face_area) or math.isinf(face.face_area) or face.face_area <= 0:
+            return False
+    return True
 
 
 def get_face_infos(faces):
@@ -46,20 +62,36 @@ def get_edge_infos(topo, face_infos, occ_faces):
     pass
 
 
-def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
+def write_h5file(h5_path, face_infos: list[FaceInfo], edge_infos: list[EdgeInfo]):
+    """
+    This function writes face and edge information to a h5 file.
+
+    It  creates datasets for face normals,face centroids, face areas, and face types using the face information. It
+    also creates datasets for edge links and edge types using the edge information.
+
+    Args:
+        h5_path (str): The path to the h5 file to be written.
+        face_infos (list[FaceInfo]): A list of FaceInfo objects containing face information.
+        edge_infos (list[EdgeInfo]): A list of EdgeInfo objects containing edge information.
+
+    Returns:
+        None
+    """
+
     file = h5py.File(h5_path, 'w')
 
+    # Create datasets for face information
     file.create_dataset("face_normals", data=np.array([face_info.face_normal for face_info in face_infos]))
     file.create_dataset('face_centroids', data=np.array([face_info.centroid for face_info in face_infos]))
     file.create_dataset('face_areas', data=np.array([face_info.face_area for face_info in face_infos]))
     file.create_dataset('face_types', data=np.array([face_info.face_type for face_info in face_infos]))
 
+    # Create datasets for edge information
     file.create_dataset('edge_links', data=np.array([edge_info.face_tags for edge_info in edge_infos]))
     file.create_dataset('edge_types', data=np.array([edge_info.edge_type for edge_info in edge_infos]))
-    # group.create_dataset('edge_convexity', data=np.array([edge_info.convexity for edge_info in edge_infos]))
-    file.close()
-    pass
 
+    # Close the h5 file
+    file.close()
 
 def load_h5file(data_id):
     data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
@@ -77,6 +109,17 @@ def load_h5file(data_id):
 
 
 def read_step(filepath):
+    """
+    This function reads a STEP file and extracts face and edge information.
+    The function returns the face information and edge information.
+
+    Args:
+        filepath (str): The path to the STEP file to be read.
+
+    Returns:
+        face_infos (dict): A dictionary where the keys are hashes of the faces and the values are FaceInfo objects.
+        edge_infos (dict): A dictionary where the keys are hashes of the edges and the values are EdgeInfo objects.
+    """
     if not os.path.exists(filepath):
         raise Exception(filepath, "not exists")
     reader = STEPControl_Reader()
@@ -84,37 +127,12 @@ def read_step(filepath):
     reader.TransferRoot()
     shape = reader.OneShape()
 
-    # transfer_reader = reader.WS().TransferReader()
     topo_explorer = TopologyExplorer(shape)
     faces = list(topo_explorer.faces())
     face_infos = get_face_infos(faces)
     edge_infos, face_adj = get_edge_infos(topo_explorer, face_infos, faces)
 
     return face_infos, edge_infos
-    # for (i, item) in face_infos.items():
-    #     print(item.hash, "-----", item.face_type, item.face_normal)
-    #
-    # print("============")
-    #
-    # for i, item in edge_infos.items():
-    #     print(item.hash, "-----", item.edge_type, "face hash:", face_infos[item.face_hashes[0]].hash,
-    #           face_infos[item.face_hashes[0]].face_normal)
-    #
-    # print(face_adj)
-    # print(len(faces))
-    # edges = list(topo_explorer.edges())
-    # print(len(edges))
-    # for edge in edges:
-    #     neighbor_faces = list(topo_explorer.faces_from_edge(edge))
-    #     # print(len(neighbor_faces))
-    #     # print(hash(edge))
-    #     if len(neighbor_faces) == 1:
-    #         related_edges = topo_explorer.edges_from_face(neighbor_faces[0])
-    #         print(BRepAdaptor_Surface(neighbor_faces[0], True).GetType())
-    #         for related_edge in related_edges:
-    #             print(BRepAdaptor_Curve(related_edge).GetType())
-
-    pass
 
 
 INVALID_IDS = ['0074/00745817', '0086/00866760']
@@ -159,8 +177,16 @@ def process_one(data_id):
     if not os.path.exists(truck_dir):
         os.makedirs(truck_dir)
 
+    # Check if the data is valid
+    face_list = list(face_infos.values())
+    edge_list = list(edge_infos.values())
+    is_valid = check_data(face_list, edge_list)
+    if not is_valid:
+        print('invalid data', data_id)
+        INVALID_IDS.append(data_id)
+        return
     # Write the face and edge information to a h5 file at the save_path
-    write_h5file(save_path, list(face_infos.values()), list(edge_infos.values()))
+    write_h5file(save_path, face_list, edge_list)
 
 
 DATA_DIR = '../../data'
@@ -192,3 +218,9 @@ if __name__ == '__main__':
     for x in pbar:
         pbar.set_description('processing test' + x)
         process_one(x)
+        invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
+
+        # write INVALID_IDS to invalid_id_file
+        with open(invalid_id_file, 'w') as f:
+            json.dump(INVALID_IDS, f, indent=2)
+
