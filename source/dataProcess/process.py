@@ -93,6 +93,7 @@ def write_h5file(h5_path, face_infos: list[FaceInfo], edge_infos: list[EdgeInfo]
     # Close the h5 file
     file.close()
 
+
 def load_h5file(data_id):
     data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
     h5_path = os.path.join(SAVE_DIR, data_id + '.h5')
@@ -121,7 +122,8 @@ def read_step(filepath):
         edge_infos (dict): A dictionary where the keys are hashes of the edges and the values are EdgeInfo objects.
     """
     if not os.path.exists(filepath):
-        raise Exception(filepath, "not exists")
+        print('file not exists', filepath)
+        raise Exception()
     reader = STEPControl_Reader()
     reader.ReadFile(filepath)
     reader.TransferRoot()
@@ -135,10 +137,10 @@ def read_step(filepath):
     return face_infos, edge_infos
 
 
-INVALID_IDS = ['0074/00745817', '0086/00866760']
+INVALID_IDS = []
 
 
-def process_one(data_id):
+def process_one(data_id, phase):
     """
     This function processes a single data_id. It first checks if the data_id is in the list of INVALID_IDS.
     If it is, the function prints a message and returns. If not, it proceeds to process the data_id.
@@ -156,9 +158,9 @@ def process_one(data_id):
         None
     """
     # Check if data_id is in the list of invalid ids
-    if data_id in INVALID_IDS:
-        print('skip {} in invalid ids'.format(data_id))
-        return
+    # if data_id in INVALID_IDS:
+    #     print('skip {} in invalid ids'.format(data_id))
+    #     return
 
     # Construct the data_id, save_path and step_path
     data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
@@ -169,7 +171,7 @@ def process_one(data_id):
     try:
         face_infos, edge_infos = read_step(step_path)
     except Exception:
-        print(Exception)
+        INVALID_IDS.append(data_id)
         return
 
         # Create the directory for save_path if it does not exist
@@ -187,6 +189,12 @@ def process_one(data_id):
         return
     # Write the face and edge information to a h5 file at the save_path
     write_h5file(save_path, face_list, edge_list)
+    if phase == 'train':
+        new_train_data_ids.append(data_id)
+    elif phase == 'validation':
+        new_validation_data_ids.append(data_id)
+    elif phase == 'test':
+        new_test_data_ids.append(data_id)
 
 
 DATA_DIR = '../../data'
@@ -204,23 +212,32 @@ if __name__ == '__main__':
     # process_one('0074/00745817')
     # process_one('0000/00000251')
 
+    new_train_data_ids = []
+    new_validation_data_ids = []
+    new_test_data_ids = []
     with open(RECORD_FILE, 'r') as f:
         all_data = json.load(f)
     pbar = tqdm.tqdm(all_data['train'])
     for x in pbar:
         pbar.set_description('processing train' + x)
-        process_one(x)
+        process_one(x, 'train')
+        pbar.set_postfix({'invalid': len(INVALID_IDS)})
     pbar = tqdm.tqdm(all_data['validation'])
     for x in pbar:
         pbar.set_description('processing validation' + x)
-        process_one(x)
+        process_one(x, 'validation')
+        pbar.set_postfix({'invalid': len(INVALID_IDS)})
     pbar = tqdm.tqdm(all_data['test'])
     for x in pbar:
         pbar.set_description('processing test' + x)
-        process_one(x)
-        invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
+        process_one(x, 'test')
+        pbar.set_postfix({'invalid': len(INVALID_IDS)})
 
-        # write INVALID_IDS to invalid_id_file
-        with open(invalid_id_file, 'w') as f:
-            json.dump(INVALID_IDS, f, indent=2)
-
+    invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
+    new_train_val_test_split_file = os.path.join(DATA_DIR, 'new_train_val_test_split.json')
+    # write INVALID_IDS to invalid_id_file
+    with open(invalid_id_file, 'w') as f:
+        json.dump(INVALID_IDS, f, indent=2)
+    with open(new_train_val_test_split_file, 'w') as f:
+        json.dump({'train': new_train_data_ids, 'validation': new_validation_data_ids, 'test': new_test_data_ids}, f,
+                  indent=2)
