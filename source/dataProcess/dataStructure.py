@@ -56,6 +56,7 @@ class FaceInfo:
 
         # BRepGProp.BRepGProp_Face(self.face).
 
+    def print_data(self):
 
 def get_edge_type(edge):
     curve = BRepAdaptor_Curve(edge)

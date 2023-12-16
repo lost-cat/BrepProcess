@@ -20,7 +20,7 @@ def check_data(face_list, edge_list) -> bool:
     if len(face_list) == 0 or len(edge_list) == 0:
         return False
     for face in face_list:
-        for f in face.face_normals:
+        for f in face.face_normal:
             if math.isnan(f) or math.isinf(f):
                 return False
         for f in face.centroid:
@@ -62,7 +62,7 @@ def get_edge_infos(topo, face_infos, occ_faces):
     pass
 
 
-def write_h5file(h5_path, face_infos: list[FaceInfo], edge_infos: list[EdgeInfo]):
+def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
     """
     This function writes face and edge information to a h5 file.
 
@@ -202,19 +202,14 @@ SAVE_DIR = os.path.join(DATA_DIR, 'h5file')
 STEP_DIR = os.path.join(DATA_DIR, 'step')
 RECORD_FILE = os.path.join(DATA_DIR, 'train_val_test_split.json')
 
-if __name__ == '__main__':
-    # attrs, edge_links = load_h5file('0000/00000172')
-    # edge_links = to_undirected(torch.tensor(edge_links, dtype=torch.long).t().contiguous())
-    # edge_links = add_self_loops(edge_links, num_nodes=attrs.shape[0])
-    # data = data.Data(x=torch.tensor(attrs, dtype=torch.float32),
-    #                  edge_index=edge_links[0])
-    # print(data)
-    # process_one('0074/00745817')
-    # process_one('0000/00000251')
+new_train_data_ids = []
+new_validation_data_ids = []
+new_test_data_ids = []
 
-    new_train_data_ids = []
-    new_validation_data_ids = []
-    new_test_data_ids = []
+
+def process_all():
+    global new_train_data_ids, new_validation_data_ids, new_test_data_ids
+
     with open(RECORD_FILE, 'r') as f:
         all_data = json.load(f)
     pbar = tqdm.tqdm(all_data['train'])
@@ -232,7 +227,6 @@ if __name__ == '__main__':
         pbar.set_description('processing test' + x)
         process_one(x, 'test')
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
-
     invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
     new_train_val_test_split_file = os.path.join(DATA_DIR, 'new_train_val_test_split.json')
     # write INVALID_IDS to invalid_id_file
@@ -241,3 +235,12 @@ if __name__ == '__main__':
     with open(new_train_val_test_split_file, 'w') as f:
         json.dump({'train': new_train_data_ids, 'validation': new_validation_data_ids, 'test': new_test_data_ids}, f,
                   indent=2)
+
+
+if __name__ == '__main__':
+    test_data_ids = ['0066/00665514', '0033/00331864', '0046/00469549', '0023/00237704']
+
+    for data_id in test_data_ids:
+        process_one(data_id, 'none')
+
+    # process_all()
