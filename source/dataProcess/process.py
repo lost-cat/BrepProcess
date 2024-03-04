@@ -1,141 +1,9 @@
 import json
-import math
 import os.path
 
-import h5py
-import numpy as np
-import torch
 import tqdm
-from OCC.Core.STEPControl import STEPControl_Reader
-from OCC.Extend.TopologyUtils import TopologyExplorer
-from joblib import Parallel, delayed
-from torch_geometric.utils import to_undirected, add_self_loops
-import torch_geometric.data as data
-from typing import List
 
-from source.dataProcess.dataStructure import FaceInfo, EdgeInfo
-
-
-def check_data(face_list, edge_list) -> bool:
-    if len(face_list) == 0 or len(edge_list) == 0:
-        return False
-    for face in face_list:
-        for f in face.face_normal:
-            if math.isnan(f) or math.isinf(f):
-                return False
-        for f in face.centroid:
-            if math.isnan(f) or math.isinf(f):
-                return False
-        if math.isnan(face.face_area) or math.isinf(face.face_area) or face.face_area <= 0:
-            return False
-    return True
-
-
-def get_face_infos(faces):
-    face_infos = {}
-    for face in faces:
-        face_info = FaceInfo(face, len(face_infos))
-        face_infos[face_info.hash] = face_info
-
-    return face_infos
-
-
-def get_edge_infos(topo, face_infos, occ_faces):
-    edge_infos = {}
-    edges = topo.edges()
-    face_adj = np.zeros((len(occ_faces), len(occ_faces)))
-    for edge in edges:
-        faces = list(topo.faces_from_edge(edge))
-        if len(faces) != 2:
-            continue
-
-        edge_info = EdgeInfo(edge, len(edge_infos))
-        edge_info.faces = faces
-        for face in faces:
-            edge_info.face_hashes.append(hash(face))
-            edge_info.face_tags.append(occ_faces.index(face))
-        face_adj[edge_info.face_tags[0], edge_info.face_tags[1]] = 1
-        face_adj[edge_info.face_tags[1], edge_info.face_tags[0]] = 1
-        edge_infos[edge_info.hash] = edge_info
-
-    return edge_infos, face_adj
-    pass
-
-
-def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
-    """
-    This function writes face and edge information to a h5 file.
-
-    It  creates datasets for face normals,face centroids, face areas, and face types using the face information. It
-    also creates datasets for edge links and edge types using the edge information.
-
-    Args:
-        h5_path (str): The path to the h5 file to be written.
-        face_infos (list[FaceInfo]): A list of FaceInfo objects containing face information.
-        edge_infos (list[EdgeInfo]): A list of EdgeInfo objects containing edge information.
-
-    Returns:
-        None
-    """
-
-    file = h5py.File(h5_path, 'w')
-
-    # Create datasets for face information
-    file.create_dataset("face_normals", data=np.array([face_info.face_normal for face_info in face_infos]))
-    file.create_dataset('face_centroids', data=np.array([face_info.centroid for face_info in face_infos]))
-    file.create_dataset('face_areas', data=np.array([face_info.face_area for face_info in face_infos]))
-    file.create_dataset('face_types', data=np.array([face_info.face_type for face_info in face_infos]))
-
-    # Create datasets for edge information
-    file.create_dataset('edge_links', data=np.array([edge_info.face_tags for edge_info in edge_infos]))
-    file.create_dataset('edge_types', data=np.array([edge_info.edge_type for edge_info in edge_infos]))
-
-    # Close the h5 file
-    file.close()
-
-
-def load_h5file(data_id):
-    data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
-    h5_path = os.path.join(SAVE_DIR, data_id + '.h5')
-    file = h5py.File(h5_path, 'r')
-    face_normals = np.array(file.get("face_normals"))
-    face_centroids = np.array(file.get("face_centroids"))
-    face_areas = np.array(file.get("face_areas")).reshape(-1, 1)
-    face_types = np.array(file.get("face_types")).reshape(-1, 1)
-    edge_links = np.array(file.get("edge_links"))
-
-    attrs = np.concatenate((face_normals, face_centroids, face_areas, face_types), axis=1)
-    return attrs, edge_links
-    pass
-
-
-def read_step(filepath):
-    """
-    This function reads a STEP file and extracts face and edge information.
-    The function returns the face information and edge information.
-
-    Args:
-        filepath (str): The path to the STEP file to be read.
-
-    Returns:
-        face_infos (dict): A dictionary where the keys are hashes of the faces and the values are FaceInfo objects.
-        edge_infos (dict): A dictionary where the keys are hashes of the edges and the values are EdgeInfo objects.
-    """
-    if not os.path.exists(filepath):
-        print('file not exists', filepath)
-        raise Exception()
-    reader = STEPControl_Reader()
-    reader.ReadFile(filepath)
-    reader.TransferRoot()
-    shape = reader.OneShape()
-
-    topo_explorer = TopologyExplorer(shape)
-    faces = list(topo_explorer.faces())
-    face_infos = get_face_infos(faces)
-    edge_infos, face_adj = get_edge_infos(topo_explorer, face_infos, faces)
-
-    return face_infos, edge_infos
-
+from source.dataProcess.util import get_path_by_data_id, read_step, write_h5file, check_data
 
 INVALID_IDS = []
 
@@ -163,9 +31,8 @@ def process_one(data_id, phase):
     #     return
 
     # Construct the data_id, save_path and step_path
-    data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
-    save_path = os.path.join(SAVE_DIR, data_id + '.h5')
-    step_path = os.path.join(STEP_DIR, data_id + '.step')
+    save_path = get_path_by_data_id(data_id, SAVE_DIR, '.h5')
+    step_path = get_path_by_data_id(data_id, STEP_DIR, '.step')
 
     # Read the step file and retrieve face and edge information\
     try:
@@ -238,9 +105,10 @@ def process_all():
 
 
 if __name__ == '__main__':
-    test_data_ids = ['0066/00665514', '0033/00331864', '0046/00469549', '0023/00237704']
+    test_data_ids = ['0000/00000001']
 
     for data_id in test_data_ids:
         process_one(data_id, 'none')
+
 
     # process_all()

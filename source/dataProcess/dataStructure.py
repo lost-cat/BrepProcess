@@ -1,18 +1,38 @@
+from enum import IntEnum
+
 from OCC.Core import BRepGProp
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_LinearProperties
 
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GeomAbs import GeomAbs_SurfaceType
+from OCC.Core.GeomAbs import GeomAbs_SurfaceType, GeomAbs_Line
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Vec, gp_Pnt
 from typing import Tuple
 
 
-def get_face_type(face: TopoDS_Face) -> GeomAbs_SurfaceType:
+class FaceType(IntEnum):
+    PLANE = 0
+    CYLINDER = 1
+    OTHER = 2
+
+
+class EdgeType(IntEnum):
+    LINE = 0
+    CIRCLE = 1
+    OTHER = 2
+
+
+def get_face_type(face: TopoDS_Face) -> FaceType:
     surface = BRepAdaptor_Surface(face, True)
     face_type = surface.GetType()
-    return face_type
+    if face_type == 0:
+        return FaceType.PLANE
+    elif face_type == 1:
+        return FaceType.CYLINDER
+    else:
+        print('face_type:', face_type)
+        return FaceType.OTHER
 
 
 def get_surface_area_and_centroid(face: TopoDS_Face):
@@ -57,14 +77,46 @@ class FaceInfo:
         # BRepGProp.BRepGProp_Face(self.face).
 
     def print_data(self):
+        print(
+            f'face_normal: {self.face_normal}, centroid: {self.centroid}, face_area: {self.face_area}, '
+            f'face_type: {self.face_type} ')
+
 
 def get_edge_type(edge):
     curve = BRepAdaptor_Curve(edge)
-    return curve.GetType()
+    if curve.GetType() == GeomAbs_Line:
+        return EdgeType.LINE
+    elif curve.GetType() == 1:
+        return EdgeType.CIRCLE
+    else:
+        print('edge_type:', curve.GetType())
+        return EdgeType.OTHER
 
 
-def get_edge_convexity(edge):
+def get_line_length(edge):
+    curve = BRepAdaptor_Curve(edge)
+    if curve.GetType() == GeomAbs_Line:
+        props = GProp_GProps()
+        brepgprop_LinearProperties(edge, props)
+        return props.Mass()
     pass
+
+
+def get_circle_radius(edge):
+    curve = BRepAdaptor_Curve(edge)
+    if curve.GetType() == 1:
+        circle = curve.Circle()
+        return circle.Radius()
+
+
+pass
+
+
+def get_start_end_points(edge):
+    curve = BRepAdaptor_Curve(edge)
+    start_point = curve.Value(curve.FirstParameter())
+    end_point = curve.Value(curve.LastParameter())
+    return start_point.Coord(), end_point.Coord()
 
 
 class EdgeInfo:
@@ -79,3 +131,9 @@ class EdgeInfo:
         self.convexity = None
         self.edge_type = get_edge_type(edge)
         self.hash = hash(edge)
+        self.length = get_line_length(edge)
+        self.radius = get_circle_radius(edge)
+        self.start_point, self.end_point = get_start_end_points(edge)
+
+    def print_data(self):
+        print(f'edge_type: {self.edge_type}, convexity: {self.convexity}, faces: {self.face_tags}')
