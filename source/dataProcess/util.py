@@ -109,8 +109,9 @@ def load_h5file(data_id, data_dir):
     edge_end_points = np.array(file.get("edge_end_points"))
 
     attrs = np.concatenate((face_normals, face_centroids, face_areas, face_types), axis=1)
-    edge_attrs = np.concatenate((edge_links, edge_types, length_or_radius, edge_start_points, edge_end_points), axis=1)
-    return attrs, edge_attrs
+
+    edge_attrs = np.concatenate((edge_types, length_or_radius, edge_start_points, edge_end_points), axis=1)
+    return attrs, edge_links, edge_attrs
     pass
 
 
