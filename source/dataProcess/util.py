@@ -84,8 +84,10 @@ def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]
     for edge_info in edge_infos:
         if edge_info.edge_type == 0:
             length_or_radius.append(edge_info.length)
-        else:
+        elif edge_info.edge_type == 1:
             length_or_radius.append(edge_info.radius)
+        else:
+            length_or_radius.append(-1)
 
     file.create_dataset('length_or_radius', data=np.array(length_or_radius).reshape(-1, 1))
     file.create_dataset('edge_start_points', data=np.array([edge_info.start_point for edge_info in edge_infos]))
@@ -167,16 +169,36 @@ def get_edge_infos(topo, face_infos, occ_faces):
     return edge_infos, face_adj
 
 
+def is_invalid(x, should_be_positive=False):
+    if should_be_positive:
+        return math.isnan(x) or math.isinf(x) or x <= 0
+    else:
+        return math.isnan(x) or math.isinf(x)
+
+
 def check_data(face_list, edge_list) -> bool:
     if len(face_list) == 0 or len(edge_list) == 0:
         return False
     for face in face_list:
         for f in face.face_normal:
-            if math.isnan(f) or math.isinf(f):
+            if is_invalid(f):
                 return False
         for f in face.centroid:
-            if math.isnan(f) or math.isinf(f):
+            if is_invalid(f):
                 return False
-        if math.isnan(face.face_area) or math.isinf(face.face_area) or face.face_area <= 0:
+        if is_invalid(face.face_area, True):
             return False
+    for edge in edge_list:
+        if edge.edge_type == 0:
+            if is_invalid(edge.length, True):
+                return False
+        if edge.edge_type == 1:
+            if is_invalid(edge.radius, True):
+                return False
+        for point in edge.start_point:
+            if is_invalid(point):
+                return False
+        for point in edge.end_point:
+            if is_invalid(point):
+                return False
     return True

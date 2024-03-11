@@ -95,7 +95,7 @@ def get_edge_type(edge):
 
 def get_line_length(edge):
     curve = BRepAdaptor_Curve(edge)
-    if curve.GetType() == GeomAbs_Line:
+    if curve.GetType() == 0:
         props = GProp_GProps()
         brepgprop_LinearProperties(edge, props)
         return props.Mass()
