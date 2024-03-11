@@ -72,7 +72,7 @@ def process_one(data_id):
 if __name__ == '__main__':
     with open(RECORD_FILE, 'r') as f:
         all_data = json.load(f)
-    for x in tqdm.tqdm(all_data['train']):
+    for x in tqdm.tqdm(all_data['train'], postfix='train'):
         process_one(x)
     for x in tqdm.tqdm(all_data['validation']):
         process_one(x)
