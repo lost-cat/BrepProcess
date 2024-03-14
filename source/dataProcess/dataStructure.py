@@ -1,14 +1,16 @@
 from enum import IntEnum
+from typing import Tuple
 
+import occwl.face
 from OCC.Core import BRepGProp
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_LinearProperties
-
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GeomAbs import GeomAbs_SurfaceType, GeomAbs_Line
+from OCC.Core.GeomAbs import GeomAbs_Line
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Vec, gp_Pnt
-from typing import Tuple
+from occwl.edge import Edge
+from occwl.uvgrid import uvgrid, ugrid
 
 
 class FaceType(IntEnum):
@@ -30,6 +32,7 @@ def get_face_type(face: TopoDS_Face) -> FaceType:
         return FaceType.PLANE
     elif face_type == 1:
         return FaceType.CYLINDER
+
     else:
         print('face_type:', face_type)
         return FaceType.OTHER
@@ -58,11 +61,25 @@ def get_face_normal(face: TopoDS_Face):
     return norm.Coord()
 
 
+def get_face_uv_grid(face, num_u=10, num_v=10):
+    occwl_face = occwl.face.Face(face)
+    points = uvgrid(
+        occwl_face, method="point", num_u=num_u, num_v=num_v, reverse_order_with_face=True
+    )
+    normals = uvgrid(
+        occwl_face, method="normal", num_u=num_u, num_v=num_v, reverse_order_with_face=True
+    )
+    visibility_status = uvgrid(
+        occwl_face, method="visibility_status", num_u=num_u, num_v=num_v, reverse_order_with_face=True
+    )
+    return points, normals, visibility_status
+
+
 class FaceInfo:
     face_normal: Tuple[float, float, float]
     centroid: Tuple[float, float, float]
     face_area: float
-    face_type: GeomAbs_SurfaceType
+    face_type: FaceType
 
     def __init__(self, face, index):
         super().__init__()
@@ -73,8 +90,7 @@ class FaceInfo:
 
         self.face_type = get_face_type(face)
         self.face_area, self.centroid = get_surface_area_and_centroid(face)
-
-        # BRepGProp.BRepGProp_Face(self.face).
+        self.points, self.points_tangent, _ = get_face_uv_grid(face)
 
     def print_data(self):
         print(
@@ -93,12 +109,9 @@ def get_edge_type(edge):
         return EdgeType.OTHER
 
 
-def get_line_length(edge):
-    curve = BRepAdaptor_Curve(edge)
-    if curve.GetType() == 0:
-        props = GProp_GProps()
-        brepgprop_LinearProperties(edge, props)
-        return props.Mass()
+def get_edge_length(edge):
+    occwl_edge = occwl.edge.Edge(edge)
+    return occwl_edge.length()
     pass
 
 
@@ -107,16 +120,25 @@ def get_circle_radius(edge):
     if curve.GetType() == 1:
         circle = curve.Circle()
         return circle.Radius()
+    else:
+        return -1
 
 
 pass
 
 
 def get_start_end_points(edge):
-    curve = BRepAdaptor_Curve(edge)
-    start_point = curve.Value(curve.FirstParameter())
-    end_point = curve.Value(curve.LastParameter())
-    return start_point.Coord(), end_point.Coord()
+    occwl_edge = occwl.edge.Edge(edge)
+    start_point = occwl_edge.start_vertex().point()
+    end_point = occwl_edge.end_vertex().point()
+    return start_point, end_point
+
+
+def get_edge_ugrid(edge, num_u=10):
+    occwl_edge = occwl.edge.Edge(edge)
+    points = ugrid(occwl_edge, method="point", num_u=num_u)
+    tangents = ugrid(occwl_edge, method="tangent", num_u=num_u)
+    return points, tangents
 
 
 class EdgeInfo:
@@ -131,9 +153,10 @@ class EdgeInfo:
         self.convexity = None
         self.edge_type = get_edge_type(edge)
         self.hash = hash(edge)
-        self.length = get_line_length(edge)
+        self.length = get_edge_length(edge)
         self.radius = get_circle_radius(edge)
         self.start_point, self.end_point = get_start_end_points(edge)
+        self.points, self.points_tangent = get_edge_ugrid(edge)
 
     def print_data(self):
         print(f'edge_type: {self.edge_type}, convexity: {self.convexity}, faces: {self.face_tags}')

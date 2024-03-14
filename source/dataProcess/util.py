@@ -2,8 +2,10 @@ import math
 import os
 from typing import List
 
+import dgl
 import h5py
 import numpy as np
+import torch
 from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Extend.TopologyUtils import TopologyExplorer
 
@@ -15,18 +17,9 @@ def get_path_by_data_id(data_id, prefix='none', ext='.step'):
     return os.path.join(prefix, data_id + ext)
 
 
+
+# todo  change to occwl
 def read_step(filepath):
-    """
-    This function reads a STEP file and extracts face and edge information.
-    The function returns the face information and edge information.
-
-    Args:
-        filepath (str): The path to the STEP file to be read.
-
-    Returns:
-        face_infos (dict): A dictionary where the keys are hashes of the faces and the values are FaceInfo objects.
-        edge_infos (dict): A dictionary where the keys are hashes of the edges and the values are EdgeInfo objects.
-    """
     if not os.path.exists(filepath):
         print('file not exists', filepath)
         raise Exception()
@@ -34,7 +27,6 @@ def read_step(filepath):
     reader.ReadFile(filepath)
     reader.TransferRoot()
     shape = reader.OneShape()
-
     topo_explorer = TopologyExplorer(shape)
     faces = list(topo_explorer.faces())
     face_infos = get_face_infos(faces)
@@ -46,22 +38,47 @@ def read_step(filepath):
 IDENTITY = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
 
+def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
+    src = [e.face_tags[0] for e in edge_infos]
+    dst = [e.face_tags[1] for e in edge_infos]
+    dgl_graph = dgl.graph((src, dst), num_nodes=len(face_infos))
+
+    face_normals = np.array([face_info.face_normal for face_info in face_infos])
+    face_centroids = np.array([face_info.centroid for face_info in face_infos])
+    face_areas = np.array([face_info.face_area for face_info in face_infos]).reshape(-1, 1)
+    faces_types = []
+    for face_info in face_infos:
+        faces_types.append(IDENTITY[face_info.face_type])
+
+    face_points = [fi.points for fi in face_infos]
+    face_tangents = [fi.points_tangent for fi in face_infos]
+    face_attrs = np.concatenate((face_normals, face_centroids, face_areas, np.stack(faces_types, axis=0)), axis=1)
+    dgl_graph.ndata['x'] = torch.from_numpy(face_attrs)
+    dgl_graph.ndata['points'] = torch.from_numpy(np.array(face_points))
+    dgl_graph.ndata['tangents'] = torch.from_numpy(np.array(face_tangents))
+
+    edge_types = []
+    for edge_info in edge_infos:
+        edge_types.append(IDENTITY[edge_info.edge_type])
+    edge_length = [e.length for e in edge_infos]
+    edge_radius = [e.radius for e in edge_infos]
+    edge_start_points = [e.start_point for e in edge_infos]
+    edge_end_points = [e.end_point for e in edge_infos]
+
+    edge_points = [e.points for e in edge_infos]
+    edge_tangents = [e.points_tangent for e in edge_infos]
+
+    edge_attrs = np.concatenate((np.stack(edge_types, axis=0), np.array(edge_length).reshape(-1, 1),
+                                 np.array(edge_radius).reshape(-1, 1), np.array(edge_start_points),
+                                 np.array(edge_end_points)), axis=1)
+
+    dgl_graph.edata['x'] = torch.from_numpy(edge_attrs)
+    dgl_graph.edata['points'] = torch.from_numpy(np.array(edge_points))
+    dgl_graph.edata['tangents'] = torch.from_numpy(np.array(edge_tangents))
+    return dgl_graph
+
+
 def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
-    """
-    This function writes face and edge information to a h5 file.
-
-    It  creates datasets for face normals,face centroids, face areas, and face types using the face information. It
-    also creates datasets for edge links and edge types using the edge information.
-
-    Args:
-        h5_path (str): The path to the h5 file to be written.
-        face_infos (list[FaceInfo]): A list of FaceInfo objects containing face information.
-        edge_infos (list[EdgeInfo]): A list of EdgeInfo objects containing edge information.
-
-    Returns:
-        None
-    """
-
     file = h5py.File(h5_path, 'w')
 
     # Create datasets for face information
@@ -127,28 +144,6 @@ def get_face_infos(faces):
 
 
 def get_edge_infos(topo, face_infos, occ_faces):
-    """
-    This function retrieves edge information from a topology explorer object and a list of faces.
-
-    It iterates over the edges in the topology explorer object. For each edge, it retrieves the faces associated with
-    the edge. If the edge is not associated with exactly two faces, it skips the edge.
-
-    It creates an EdgeInfo object for the edge and appends the hashes and indices of the associated faces to the
-    EdgeInfo object. It also updates a face adjacency matrix to indicate the adjacency of the faces associated with
-    the edge.
-
-    It adds the EdgeInfo object to a dictionary where the keys are the hashes of the edges and the values are the
-    EdgeInfo objects.
-
-    Args:
-        topo (TopologyExplorer): The topology explorer object to retrieve edges from.
-        face_infos (dict): A dictionary where the keys are hashes of the faces and the values are FaceInfo objects.
-        occ_faces (list): A list of faces.
-
-    Returns:
-        edge_infos (dict): A dictionary where the keys are hashes of the edges and the values are EdgeInfo objects.
-        face_adj (numpy.ndarray): A 2D numpy array representing the face adjacency matrix.
-    """
     edge_infos = {}
     edges = topo.edges()
     face_adj = np.zeros((len(occ_faces), len(occ_faces)))

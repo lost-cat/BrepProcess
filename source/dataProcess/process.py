@@ -1,9 +1,10 @@
 import json
 import os.path
 
+import dgl.data
 import tqdm
 
-from source.dataProcess.util import get_path_by_data_id, read_step, write_h5file, check_data
+from source.dataProcess.util import get_path_by_data_id, read_step, check_data, convert_to_dgl_graph
 
 INVALID_IDS = []
 
@@ -31,13 +32,14 @@ def process_one(data_id, phase):
     #     return
 
     # Construct the data_id, save_path and step_path
-    save_path = get_path_by_data_id(data_id, SAVE_DIR, '.h5')
+    save_path = get_path_by_data_id(data_id, SAVE_DIR, '.bin')
     step_path = get_path_by_data_id(data_id, STEP_DIR, '.step')
 
     # Read the step file and retrieve face and edge information\
     try:
         face_infos, edge_infos = read_step(step_path)
-    except Exception:
+    except Exception as e:
+        print(e)
         INVALID_IDS.append(data_id)
         return
 
@@ -54,8 +56,10 @@ def process_one(data_id, phase):
         print('invalid data', data_id)
         INVALID_IDS.append(data_id)
         return
-    # Write the face and edge information to a h5 file at the save_path
-    write_h5file(save_path, face_list, edge_list)
+
+    dgl_graph = convert_to_dgl_graph(face_list, edge_list)
+    dgl.data.save_graphs(save_path, [dgl_graph])
+    # write_h5file(save_path, face_list, edge_list)
     if phase == 'train':
         new_train_data_ids.append(data_id)
     elif phase == 'validation':
@@ -65,7 +69,7 @@ def process_one(data_id, phase):
 
 
 DATA_DIR = '../../data'
-SAVE_DIR = os.path.join(DATA_DIR, 'h5file')
+SAVE_DIR = os.path.join(DATA_DIR, 'dgl')
 STEP_DIR = os.path.join(DATA_DIR, 'step')
 RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
 
