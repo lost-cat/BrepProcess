@@ -67,7 +67,7 @@ def process_one(data_id, phase):
 DATA_DIR = '../../data'
 SAVE_DIR = os.path.join(DATA_DIR, 'h5file')
 STEP_DIR = os.path.join(DATA_DIR, 'step')
-RECORD_FILE = os.path.join(DATA_DIR, 'train_val_test_split.json')
+RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
 
 new_train_data_ids = []
 new_validation_data_ids = []
@@ -105,10 +105,9 @@ def process_all():
 
 
 if __name__ == '__main__':
-    test_data_ids = ['0000/00000001']
+    # test_data_ids = ['0000/00000001']
+    #
+    # for data_id in test_data_ids:
+    #     process_one(data_id, 'none')
 
-    for data_id in test_data_ids:
-        process_one(data_id, 'none')
-
-
-    # process_all()
+    process_all()

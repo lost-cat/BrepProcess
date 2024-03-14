@@ -14,11 +14,11 @@ from source.dataProcess.cadlib.visualize import create_CAD
 
 DATA_DIR = '../../data'
 SAVE_DIR = os.path.join(DATA_DIR, 'step')
-RAW_DIR = os.path.join(DATA_DIR, 'raw')
+RAW_DIR = os.path.join('/home/frb/桌面/white/DeepCAD/data/cad_json')
 
-RECORD_FILE = os.path.join(DATA_DIR, 'train_val_test_split.json')
+RECORD_FILE = os.path.join(DATA_DIR, 'filtered_train_val_test_split.json')
 
-INVALID_IDS = []
+INVALID_IDS = ['0011/00116212']
 
 
 def write_step_file(shape, save_path):
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         all_data = json.load(f)
     for x in tqdm.tqdm(all_data['train'], postfix='train'):
         process_one(x)
-    for x in tqdm.tqdm(all_data['validation']):
+    for x in tqdm.tqdm(all_data['validation'], postfix='val'):
         process_one(x)
 
-    Parallel(n_jobs=8, verbose=2)(delayed(process_one)(x) for x in tqdm.tqdm(all_data['test']))
+    Parallel(n_jobs=8, verbose=2)(delayed(process_one)(x) for x in tqdm.tqdm(all_data['test'], postfix='test'))
