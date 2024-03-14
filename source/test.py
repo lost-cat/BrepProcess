@@ -1,9 +1,30 @@
-import torch
+import json
 
-from source.dataProcess.process import process_one
 
-test_data_ids = ['0066/00665514', '0033/00331864', '0046/00469549', '0023/00237704']
+with open('../data/balanced_train_val_test_split.json', 'r') as f:
+    data = json.load(f)
 
-if __name__ == '__main__':
-    for data_id in test_data_ids:
-        process_one(data_id,'none')
+with open('../data/invalid_ids.json', 'r') as f:
+    invalid_ids = json.load(f)
+
+new_train = []
+new_val = []
+new_test = []
+for x in data['train']:
+    if x in invalid_ids:
+        continue
+    new_train.append(x)
+
+for x in data['validation']:
+    if x in invalid_ids:
+        continue
+    new_val.append(x)
+
+for x in data['test']:
+    if x in invalid_ids:
+        continue
+    new_test.append(x)
+
+with open('../data/new_split.json', 'w') as f:
+    json.dump({'train': new_train, 'validation': new_val, 'test': new_test}, f, indent=2)
+
