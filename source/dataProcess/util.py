@@ -17,7 +17,6 @@ def get_path_by_data_id(data_id, prefix='none', ext='.step'):
     return os.path.join(prefix, data_id + ext)
 
 
-
 # todo  change to occwl
 def read_step(filepath):
     if not os.path.exists(filepath):
@@ -165,10 +164,16 @@ def get_edge_infos(topo, face_infos, occ_faces):
 
 
 def is_invalid(x, should_be_positive=False):
-    if should_be_positive:
-        return math.isnan(x) or math.isinf(x) or x <= 0
-    else:
-        return math.isnan(x) or math.isinf(x)
+    if type(x) is float or int:
+        if should_be_positive:
+            return math.isnan(x) or math.isinf(x) or x <= 0
+        else:
+            return math.isnan(x) or math.isinf(x)
+    elif type(x) is np.ndarray:
+        if should_be_positive:
+            return np.isnan(x).any() or np.isinf(x).any() or (x <= 0).any()
+        else:
+            return np.isnan(x).any() or np.isinf(x).any()
 
 
 def check_data(face_list, edge_list) -> bool:
@@ -183,6 +188,14 @@ def check_data(face_list, edge_list) -> bool:
                 return False
         if is_invalid(face.face_area, True):
             return False
+        for point in face.points:
+            if is_invalid(point):
+                print('face point invalid')
+                return False
+        for tangent in face.points_tangent:
+            if is_invalid(tangent):
+                print('face tangent invalid')
+                return False
     for edge in edge_list:
         if edge.edge_type == 0:
             if is_invalid(edge.length, True):
@@ -195,5 +208,13 @@ def check_data(face_list, edge_list) -> bool:
                 return False
         for point in edge.end_point:
             if is_invalid(point):
+                return False
+        for point in edge.points:
+            if is_invalid(point):
+                print('edge point invalid')
+                return False
+        for tangent in edge.points_tangent:
+            if is_invalid(tangent):
+                print('edge tangent invalid')
                 return False
     return True
