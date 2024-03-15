@@ -1,6 +1,7 @@
 from enum import IntEnum
 from typing import Tuple
 
+import numpy as np
 import occwl.face
 from OCC.Core import BRepGProp
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
@@ -72,7 +73,9 @@ def get_face_uv_grid(face, num_u=10, num_v=10):
     visibility_status = uvgrid(
         occwl_face, method="visibility_status", num_u=num_u, num_v=num_v, reverse_order_with_face=True
     )
-    return points, normals, visibility_status
+    mask = np.logical_or(visibility_status == 0, visibility_status == 2)  # 0: Inside, 1: Outside, 2: On boundary
+    uv_face_attr = np.concatenate((points, normals, mask), axis=-1)
+    return uv_face_attr
 
 
 class FaceInfo:
@@ -90,7 +93,7 @@ class FaceInfo:
 
         self.face_type = get_face_type(face)
         self.face_area, self.centroid = get_surface_area_and_centroid(face)
-        self.points, self.points_tangent, _ = get_face_uv_grid(face)
+        self.uv_face_attr = get_face_uv_grid(face)
 
     def print_data(self):
         print(
@@ -138,7 +141,8 @@ def get_edge_ugrid(edge, num_u=10):
     occwl_edge = occwl.edge.Edge(edge)
     points = ugrid(occwl_edge, method="point", num_u=num_u)
     tangents = ugrid(occwl_edge, method="tangent", num_u=num_u)
-    return points, tangents
+    edge_uv_attr = np.concatenate((points, tangents), axis=-1)
+    return edge_uv_attr
 
 
 class EdgeInfo:
@@ -156,7 +160,7 @@ class EdgeInfo:
         self.length = get_edge_length(edge)
         self.radius = get_circle_radius(edge)
         self.start_point, self.end_point = get_start_end_points(edge)
-        self.points, self.points_tangent = get_edge_ugrid(edge)
+        self.edge_uv_attr = get_edge_ugrid(edge)
 
     def print_data(self):
         print(f'edge_type: {self.edge_type}, convexity: {self.convexity}, faces: {self.face_tags}')

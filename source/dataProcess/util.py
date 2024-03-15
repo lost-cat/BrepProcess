@@ -49,12 +49,10 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
     for face_info in face_infos:
         faces_types.append(IDENTITY[face_info.face_type])
 
-    face_points = [fi.points for fi in face_infos]
-    face_tangents = [fi.points_tangent for fi in face_infos]
     face_attrs = np.concatenate((face_normals, face_centroids, face_areas, np.stack(faces_types, axis=0)), axis=1)
     dgl_graph.ndata['x'] = torch.from_numpy(face_attrs)
-    dgl_graph.ndata['points'] = torch.from_numpy(np.array(face_points))
-    dgl_graph.ndata['tangents'] = torch.from_numpy(np.array(face_tangents))
+    uv_face_attrs = np.array([face_info.uv_face_attr for face_info in face_infos])
+    dgl_graph.ndata['uv_attrs'] = torch.from_numpy(uv_face_attrs)
 
     edge_types = []
     for edge_info in edge_infos:
@@ -64,16 +62,13 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
     edge_start_points = [e.start_point for e in edge_infos]
     edge_end_points = [e.end_point for e in edge_infos]
 
-    edge_points = [e.points for e in edge_infos]
-    edge_tangents = [e.points_tangent for e in edge_infos]
-
     edge_attrs = np.concatenate((np.stack(edge_types, axis=0), np.array(edge_length).reshape(-1, 1),
                                  np.array(edge_radius).reshape(-1, 1), np.array(edge_start_points),
                                  np.array(edge_end_points)), axis=1)
-
     dgl_graph.edata['x'] = torch.from_numpy(edge_attrs)
-    dgl_graph.edata['points'] = torch.from_numpy(np.array(edge_points))
-    dgl_graph.edata['tangents'] = torch.from_numpy(np.array(edge_tangents))
+
+    uv_edge_attrs = np.array([edge_info.edge_uv_attr for edge_info in edge_infos])
+    dgl_graph.edata['uv_attrs'] = torch.from_numpy(uv_edge_attrs)
     return dgl_graph
 
 
