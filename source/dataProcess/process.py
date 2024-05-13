@@ -9,7 +9,7 @@ from source.dataProcess.util import get_path_by_data_id, read_step, check_data, 
 INVALID_IDS = []
 
 
-def process_one(data_id, phase):
+def process_one(data_id, phase, save_dir=None, step_dir=None):
     """
     This function processes a single data_id. It first checks if the data_id is in the list of INVALID_IDS.
     If it is, the function prints a message and returns. If not, it proceeds to process the data_id.
@@ -32,8 +32,8 @@ def process_one(data_id, phase):
     #     return
 
     # Construct the data_id, save_path and step_path
-    save_path = get_path_by_data_id(data_id, SAVE_DIR, '.bin')
-    step_path = get_path_by_data_id(data_id, STEP_DIR, '.step')
+    save_path = get_path_by_data_id(data_id, save_dir, '.bin')
+    step_path = get_path_by_data_id(data_id, step_dir, '.step')
 
     # Read the step file and retrieve face and edge information\
     try:
@@ -86,18 +86,21 @@ def process_all():
     pbar = tqdm.tqdm(all_data['train'])
     for x in pbar:
         pbar.set_description('processing train' + x)
-        process_one(x, 'train')
+        process_one(x, 'train', SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
+
     pbar = tqdm.tqdm(all_data['validation'])
     for x in pbar:
         pbar.set_description('processing validation' + x)
-        process_one(x, 'validation')
+        process_one(x, 'validation', SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
+
     pbar = tqdm.tqdm(all_data['test'])
     for x in pbar:
         pbar.set_description('processing test' + x)
-        process_one(x, 'test')
+        process_one(x, 'test', SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
+
     invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
     new_train_val_test_split_file = os.path.join(DATA_DIR, 'new_train_val_test_split.json')
     # write INVALID_IDS to invalid_id_file
@@ -106,6 +109,18 @@ def process_all():
     with open(new_train_val_test_split_file, 'w') as f:
         json.dump({'train': new_train_data_ids, 'validation': new_validation_data_ids, 'test': new_test_data_ids}, f,
                   indent=2)
+
+
+def process_brep2seq_data():
+    filelist = '../../data/brep2seq/test.txt'
+    save_dir = '../../data/brep2seq/dgl'
+
+    step_dir = '../../data/brep2seq/step'
+    with open(filelist, 'r') as f:
+        data_ids = [x.strip() for x in f.readlines()]
+        for data_id in data_ids:
+            process_one(data_id, 'none', save_dir, step_dir)
+
 
 
 if __name__ == '__main__':

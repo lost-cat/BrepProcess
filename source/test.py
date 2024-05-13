@@ -1,5 +1,6 @@
 import json
 
+import occwl.io
 
 with open('../data/balanced_train_val_test_split.json', 'r') as f:
     data = json.load(f)
