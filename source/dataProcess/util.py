@@ -159,16 +159,19 @@ def get_edge_infos(topo, face_infos, occ_faces):
 
 
 def is_invalid(x, should_be_positive=False):
-    if type(x) is float or int:
+    if isinstance(x, float) or isinstance(x, int):
         if should_be_positive:
             return math.isnan(x) or math.isinf(x) or x <= 0
         else:
             return math.isnan(x) or math.isinf(x)
-    elif type(x) is np.ndarray:
+    elif isinstance(x, np.ndarray):
+
         if should_be_positive:
             return np.isnan(x).any() or np.isinf(x).any() or (x <= 0).any()
         else:
             return np.isnan(x).any() or np.isinf(x).any()
+    else:
+        raise Exception('unsupport data type', type(x))
 
 
 def check_data(face_list, edge_list) -> bool:
@@ -183,13 +186,9 @@ def check_data(face_list, edge_list) -> bool:
                 return False
         if is_invalid(face.face_area, True):
             return False
-        for point in face.points:
-            if is_invalid(point):
-                print('face point invalid')
-                return False
-        for tangent in face.points_tangent:
-            if is_invalid(tangent):
-                print('face tangent invalid')
+        for uv_attr in face.uv_face_attr:
+            if is_invalid(uv_attr):
+                print('uv invalid')
                 return False
     for edge in edge_list:
         if edge.edge_type == 0:
@@ -204,12 +203,9 @@ def check_data(face_list, edge_list) -> bool:
         for point in edge.end_point:
             if is_invalid(point):
                 return False
-        for point in edge.points:
-            if is_invalid(point):
+        for uv_edge in edge.edge_uv_attr:
+            if is_invalid(uv_edge):
                 print('edge point invalid')
                 return False
-        for tangent in edge.points_tangent:
-            if is_invalid(tangent):
-                print('edge tangent invalid')
-                return False
+
     return True

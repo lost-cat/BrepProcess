@@ -124,9 +124,9 @@ def process_brep2seq_data():
 
 
 if __name__ == '__main__':
-    # test_data_ids = ['0000/00000001']
+    # test_data_ids = ['0000/00000007']
     #
     # for data_id in test_data_ids:
     #     process_one(data_id, 'none')
-
+    #
     process_all()

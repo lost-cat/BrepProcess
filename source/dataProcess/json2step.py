@@ -16,7 +16,7 @@ DATA_DIR = '../../data'
 SAVE_DIR = os.path.join(DATA_DIR, 'step')
 RAW_DIR = os.path.join('/home/frb/桌面/white/DeepCAD/data/cad_json')
 
-RECORD_FILE = os.path.join(DATA_DIR, 'filtered_train_val_test_split.json')
+RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
 
 INVALID_IDS = ['0011/00116212']
 
