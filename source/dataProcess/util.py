@@ -5,6 +5,7 @@ from typing import List
 import dgl
 import h5py
 import numpy as np
+import occwl.io
 import torch
 from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Extend.TopologyUtils import TopologyExplorer
@@ -17,7 +18,6 @@ def get_path_by_data_id(data_id, prefix='none', ext='.step'):
     return os.path.join(prefix, data_id + ext)
 
 
-# todo  change to occwl
 def read_step(filepath):
     if not os.path.exists(filepath):
         print('file not exists', filepath)
