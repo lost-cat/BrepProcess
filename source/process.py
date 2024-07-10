@@ -2,14 +2,15 @@ import json
 import os.path
 
 import dgl.data
+import occwl.io
 import tqdm
 
-from source.util import get_path_by_data_id, read_step, check_data, convert_to_dgl_graph
+from source.util import get_path_by_data_id, read_step, check_data, convert_to_dgl_graph, get_face_edge_info
 
 INVALID_IDS = []
 
 
-def process_one(data_id, phase, save_dir=None, step_dir=None):
+def process_one(data_id, save_dir=None, step_dir=None):
     """
     This function processes a single data_id. It first checks if the data_id is in the list of INVALID_IDS.
     If it is, the function prints a message and returns. If not, it proceeds to process the data_id.
@@ -32,12 +33,17 @@ def process_one(data_id, phase, save_dir=None, step_dir=None):
     #     return
 
     # Construct the data_id, save_path and step_path
-    save_path = get_path_by_data_id(data_id, save_dir, '.bin')
-    step_path = get_path_by_data_id(data_id, step_dir, '.step_path')
+    save_path = os.path.join(save_dir, data_id + '.bin')
+    step_path = os.path.join(step_dir, data_id + '.step')
+
+    step_path_new = os.path.join(step_dir, data_id + '_0001.step')
+    if os.path.exists(step_path_new):
+        step_path = step_path_new
 
     # Read the step_path file and retrieve face and edge information\
     try:
-        face_infos, edge_infos = read_step(step_path)
+        shape = read_step(step_path, normalized=True)
+        face_infos, edge_infos = get_face_edge_info(shape)
     except Exception as e:
         print(e)
         INVALID_IDS.append(data_id)
@@ -59,18 +65,11 @@ def process_one(data_id, phase, save_dir=None, step_dir=None):
 
     dgl_graph = convert_to_dgl_graph(face_list, edge_list)
     dgl.data.save_graphs(save_path, [dgl_graph])
-    # write_h5file(save_path, face_list, edge_list)
-    if phase == 'train':
-        new_train_data_ids.append(data_id)
-    elif phase == 'validation':
-        new_validation_data_ids.append(data_id)
-    elif phase == 'test':
-        new_test_data_ids.append(data_id)
 
 
 DATA_DIR = '../../data'
 SAVE_DIR = os.path.join(DATA_DIR, 'dgl')
-STEP_DIR = os.path.join(DATA_DIR, 'step_path')
+STEP_DIR = os.path.join(DATA_DIR, 'step')
 RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
 
 new_train_data_ids = []
@@ -86,19 +85,19 @@ def process_all():
     pbar = tqdm.tqdm(all_data['train'])
     for x in pbar:
         pbar.set_description('processing train' + x)
-        process_one(x, 'train', SAVE_DIR, STEP_DIR)
+        process_one(x, SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
 
     pbar = tqdm.tqdm(all_data['validation'])
     for x in pbar:
         pbar.set_description('processing validation' + x)
-        process_one(x, 'validation', SAVE_DIR, STEP_DIR)
+        process_one(x, SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
 
     pbar = tqdm.tqdm(all_data['test'])
     for x in pbar:
         pbar.set_description('processing test' + x)
-        process_one(x, 'test', SAVE_DIR, STEP_DIR)
+        process_one(x, SAVE_DIR, STEP_DIR)
         pbar.set_postfix({'invalid': len(INVALID_IDS)})
 
     invalid_id_file = os.path.join(DATA_DIR, 'invalid_ids.json')
@@ -119,8 +118,7 @@ def process_brep2seq_data():
     with open(filelist, 'r') as f:
         data_ids = [x.strip() for x in f.readlines()]
         for data_id in data_ids:
-            process_one(data_id, 'none', save_dir, step_dir)
-
+            process_one(data_id, save_dir, step_dir)
 
 
 if __name__ == '__main__':

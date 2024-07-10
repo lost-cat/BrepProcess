@@ -48,20 +48,26 @@ def normalize(shape, center=True):
     return scaled_shape
 
 
-def read_step(filepath):
+def read_step(filepath, normalized=False):
     if not os.path.exists(filepath):
         print('file not exists', filepath)
         raise Exception()
+
     reader = STEPControl_Reader()
     reader.ReadFile(filepath)
     reader.TransferRoot()
     shape = reader.OneShape()
-    shape_normalized = normalize(shape)
-    topo_explorer = TopologyExplorer(shape_normalized)
+    if normalized:
+        shape_normalized = normalize(shape)
+        return shape_normalized
+    return shape
+
+
+def get_face_edge_info(shape):
+    topo_explorer = TopologyExplorer(shape)
     faces = list(topo_explorer.faces())
     face_infos = get_face_infos(faces)
     edge_infos, face_adj = get_edge_infos(topo_explorer, face_infos, faces)
-
     return face_infos, edge_infos
 
 
