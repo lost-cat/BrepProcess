@@ -5,13 +5,15 @@ from typing import List
 import dgl
 import h5py
 import numpy as np
+import occwl.io
 import torch
 from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Core.gp import gp_Trsf, gp_Pnt, gp_Vec
-from OCC.Extend.TopologyUtils import TopologyExplorer
+from occwl.compound import Compound
+from occwl.entity_mapper import EntityMapper
+from occwl.graph import face_adjacency
 
 from source.dataStructure import EdgeInfo, FaceInfo
 
@@ -52,22 +54,19 @@ def read_step(filepath, normalized=False):
     if not os.path.exists(filepath):
         print('file not exists', filepath)
         raise Exception()
-
-    reader = STEPControl_Reader()
-    reader.ReadFile(filepath)
-    reader.TransferRoot()
-    shape = reader.OneShape()
+    compound = occwl.io.load_single_compound_from_step(filepath)
     if normalized:
-        shape_normalized = normalize(shape)
-        return shape_normalized
-    return shape
+        compound_scaled = compound.scale_to_box(1.0)
+        return compound_scaled
+    return compound
 
 
-def get_face_edge_info(shape):
-    topo_explorer = TopologyExplorer(shape)
-    faces = list(topo_explorer.faces())
-    face_infos = get_face_infos(faces)
-    edge_infos, face_adj = get_edge_infos(topo_explorer, face_infos, faces)
+def get_face_edge_info(compound: Compound):
+    mapper = EntityMapper(compound)
+    occwl_faces = compound.faces()
+    occwl_edges = compound.edges()
+    face_infos = get_face_infos(occwl_faces, mapper)
+    edge_infos = get_edge_infos(compound, mapper)
     return face_infos, edge_infos
 
 
@@ -112,7 +111,7 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
 def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
     file = h5py.File(h5_path, 'w')
 
-    # Create datasets for face information
+    # Create datasets for occ_face information
     file.create_dataset("face_normals", data=np.array([face_info.face_normal for face_info in face_infos]))
     file.create_dataset('face_centroids', data=np.array([face_info.centroid for face_info in face_infos]))
     file.create_dataset('face_areas', data=np.array([face_info.face_area for face_info in face_infos]))
@@ -165,34 +164,25 @@ def load_h5file(data_id, data_dir):
     pass
 
 
-def get_face_infos(faces):
+def get_face_infos(occ_faces, mapper):
     face_infos = {}
-    for face in faces:
-        face_info = FaceInfo(face, len(face_infos))
+    for occ_face in occ_faces:
+        face_info = FaceInfo(occ_face, mapper.face_index(occ_face))
         face_infos[face_info.hash] = face_info
 
     return face_infos
 
 
-def get_edge_infos(topo, face_infos, occ_faces):
+def get_edge_infos(compound: Compound, mapper):
     edge_infos = {}
-    edges = topo.edges()
-    face_adj = np.zeros((len(occ_faces), len(occ_faces)))
-    for edge in edges:
-        faces = list(topo.faces_from_edge(edge))
-        if len(faces) != 2:
-            continue
+    graph = occwl.graph.face_adjacency(compound, True)
 
-        edge_info = EdgeInfo(edge, len(edge_infos))
-        edge_info.faces = faces
-        for face in faces:
-            edge_info.face_hashes.append(hash(face))
-            edge_info.face_tags.append(occ_faces.index(face))
-        face_adj[edge_info.face_tags[0], edge_info.face_tags[1]] = 1
-        face_adj[edge_info.face_tags[1], edge_info.face_tags[0]] = 1
-        edge_infos[edge_info.hash] = edge_info
+    for u, v, data in graph.edges:
+        edge = data['edge']
+        edge_info = EdgeInfo(edge, mapper.edge_index(edge))
+        edge_info.face_tags.extend([u, v])
 
-    return edge_infos, face_adj
+    return edge_infos
 
 
 def is_invalid(x, should_be_positive=False):

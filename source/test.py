@@ -1,7 +1,5 @@
-import dgl
 from OCC.Core.STEPControl import STEPControl_Reader
-from OCC.Display.SimpleGui import init_display
-from occwl import solid
+# from OCC.Display.SimpleGui import init_display
 
 from source.util import normalize, get_face_edge_info, check_data, convert_to_dgl_graph
 
@@ -25,15 +23,9 @@ if not is_valid:
 dgl_graph = convert_to_dgl_graph(face_list, edge_list)
 # dgl.data.save_graphs(save_path, [dgl_graph])
 
-display, start_display, add_menu, add_function_to_menu = init_display()
+# display, start_display, add_menu, add_function_to_menu = init_display()
+#
+# display.DisplayShape(shape_normalized)
+# start_display()
 
-display.DisplayShape(shape_normalized)
-start_display()
 
-# Optional: Translate the shape to center it in the [-1, 1] bounding box
-# Calculate the translation needed after scaling
-
-# # Save the final shape
-# step_writer = STEPControl_Writer()
-# step_writer.Transfer(final_shape, STEPControl_AsIs)
-# status = step_writer.Write('../data/test_scaled.step')

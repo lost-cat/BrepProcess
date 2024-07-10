@@ -55,7 +55,7 @@ def create_by_extrude(extrude_op: Extrude):
 
 
 def create_profile_face(profile: Profile, sketch_plane: CoordSystem):
-    """create a face from a sketch profile and the sketch plane"""
+    """create a occ_face from a sketch profile and the sketch plane"""
     origin = gp_Pnt(*sketch_plane.origin)
     normal = gp_Dir(*sketch_plane.normal)
     x_axis = gp_Dir(*sketch_plane.x_axis)

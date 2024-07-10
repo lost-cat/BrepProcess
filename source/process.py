@@ -16,9 +16,9 @@ def process_one(data_id, save_dir=None, step_dir=None):
     If it is, the function prints a message and returns. If not, it proceeds to process the data_id.
 
     The function constructs the save_path and step_path using the data_id. It then reads the step_path file
-    and retrieves face and edge information.
+    and retrieves occ_face and edge information.
 
-    If the directory for the save_path does not exist, it creates it. Finally, it writes the face and edge
+    If the directory for the save_path does not exist, it creates it. Finally, it writes the occ_face and edge
     information to a h5 file at the save_path.
 
     Args:
@@ -40,7 +40,7 @@ def process_one(data_id, save_dir=None, step_dir=None):
     if os.path.exists(step_path_new):
         step_path = step_path_new
 
-    # Read the step_path file and retrieve face and edge information\
+    # Read the step_path file and retrieve occ_face and edge information\
     try:
         shape = read_step(step_path, normalized=True)
         face_infos, edge_infos = get_face_edge_info(shape)
