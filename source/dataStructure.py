@@ -1,15 +1,8 @@
 from enum import IntEnum
-from typing import Tuple
 
 import numpy as np
 import occwl.face
-from OCC.Core import BRepGProp
-from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
-from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GeomAbs import GeomAbs_Line
-from OCC.Core.TopoDS import TopoDS_Face
-from OCC.Core.gp import gp_Vec, gp_Pnt
 from occwl.edge import Edge
 from occwl.uvgrid import uvgrid, ugrid
 
@@ -73,7 +66,6 @@ class FaceInfo:
         super().__init__()
         self.occ_face = occ_face
         self.index = index
-        self.hash = hash(occ_face)
         self.face_normal = get_face_normal(occ_face)
 
         self.face_type = get_face_type(occ_face)
@@ -104,8 +96,7 @@ def get_edge_length(occwl_edge: occwl.edge.Edge):
 
 def get_circle_radius(occwl_edge: occwl.edge.Edge):
     if occwl_edge.curve_type_enum() == 1:
-        curve = occwl_edge.curve()
-        circle = curve.Circle()
+        circle = occwl_edge.specific_curve()
         return circle.Radius()
     else:
         return -1
@@ -136,7 +127,6 @@ class EdgeInfo:
         self.face_hashes = []
         self.face_tags = []
         self.edge_type = get_edge_type(edge)
-        self.hash = hash(edge)
         self.length = get_edge_length(edge)
         self.radius = get_circle_radius(edge)
         self.start_point, self.end_point = get_start_end_points(edge)

@@ -45,7 +45,7 @@ def process_one(data_id, save_dir=None, step_dir=None):
         shape = read_step(step_path, normalized=True)
         face_infos, edge_infos = get_face_edge_info(shape)
     except Exception as e:
-        print(e)
+        print('invalid id', data_id, e)
         INVALID_IDS.append(data_id)
         return
 

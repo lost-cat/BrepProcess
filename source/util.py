@@ -14,6 +14,8 @@ from OCC.Core.gp import gp_Trsf, gp_Pnt, gp_Vec
 from occwl.compound import Compound
 from occwl.entity_mapper import EntityMapper
 from occwl.graph import face_adjacency
+from occwl.shell import Shell
+from occwl.solid import Solid
 
 from source.dataStructure import EdgeInfo, FaceInfo
 
@@ -62,7 +64,9 @@ def read_step(filepath, normalized=False):
 
 
 def get_face_edge_info(compound: Compound):
+    assert isinstance(compound, (Shell, Solid, Compound))
     mapper = EntityMapper(compound)
+
     occwl_faces = compound.faces()
     occwl_edges = compound.edges()
     face_infos = get_face_infos(occwl_faces, mapper)
@@ -168,20 +172,20 @@ def get_face_infos(occ_faces, mapper):
     face_infos = {}
     for occ_face in occ_faces:
         face_info = FaceInfo(occ_face, mapper.face_index(occ_face))
-        face_infos[face_info.hash] = face_info
+        face_infos[mapper.face_index(occ_face)] = face_info
 
     return face_infos
 
 
 def get_edge_infos(compound: Compound, mapper):
     edge_infos = {}
-    graph = occwl.graph.face_adjacency(compound, True)
+    graph = occwl.graph.face_adjacency(compound, False)
 
-    for u, v, data in graph.edges:
+    for u, v, data in graph.edges.data():
         edge = data['edge']
-        edge_info = EdgeInfo(edge, mapper.edge_index(edge))
+        edge_info = EdgeInfo(edge, mapper.oriented_edge_index(edge))
         edge_info.face_tags.extend([u, v])
-
+        edge_infos[mapper.oriented_edge_index(edge)] = edge_info
     return edge_infos
 
 
