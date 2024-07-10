@@ -4,7 +4,7 @@ import os.path
 import dgl.data
 import tqdm
 
-from source.dataProcess.util import get_path_by_data_id, read_step, check_data, convert_to_dgl_graph
+from source.util import get_path_by_data_id, read_step, check_data, convert_to_dgl_graph
 
 INVALID_IDS = []
 
@@ -14,7 +14,7 @@ def process_one(data_id, phase, save_dir=None, step_dir=None):
     This function processes a single data_id. It first checks if the data_id is in the list of INVALID_IDS.
     If it is, the function prints a message and returns. If not, it proceeds to process the data_id.
 
-    The function constructs the save_path and step_path using the data_id. It then reads the step file
+    The function constructs the save_path and step_path using the data_id. It then reads the step_path file
     and retrieves face and edge information.
 
     If the directory for the save_path does not exist, it creates it. Finally, it writes the face and edge
@@ -33,9 +33,9 @@ def process_one(data_id, phase, save_dir=None, step_dir=None):
 
     # Construct the data_id, save_path and step_path
     save_path = get_path_by_data_id(data_id, save_dir, '.bin')
-    step_path = get_path_by_data_id(data_id, step_dir, '.step')
+    step_path = get_path_by_data_id(data_id, step_dir, '.step_path')
 
-    # Read the step file and retrieve face and edge information\
+    # Read the step_path file and retrieve face and edge information\
     try:
         face_infos, edge_infos = read_step(step_path)
     except Exception as e:
@@ -70,7 +70,7 @@ def process_one(data_id, phase, save_dir=None, step_dir=None):
 
 DATA_DIR = '../../data'
 SAVE_DIR = os.path.join(DATA_DIR, 'dgl')
-STEP_DIR = os.path.join(DATA_DIR, 'step')
+STEP_DIR = os.path.join(DATA_DIR, 'step_path')
 RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
 
 new_train_data_ids = []
@@ -115,7 +115,7 @@ def process_brep2seq_data():
     filelist = '../../data/brep2seq/test.txt'
     save_dir = '../../data/brep2seq/dgl'
 
-    step_dir = '../../data/brep2seq/step'
+    step_dir = '../../data/brep2seq/step_path'
     with open(filelist, 'r') as f:
         data_ids = [x.strip() for x in f.readlines()]
         for data_id in data_ids:

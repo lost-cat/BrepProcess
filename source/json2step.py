@@ -10,10 +10,10 @@ from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.STEPControl import STEPControl_AsIs
 from joblib import Parallel, delayed
 
-from source.dataProcess.cadlib.visualize import create_CAD
+from source.cadlib.visualize import create_CAD
 
 DATA_DIR = '../../data'
-SAVE_DIR = os.path.join(DATA_DIR, 'step')
+SAVE_DIR = os.path.join(DATA_DIR, 'step_path')
 RAW_DIR = os.path.join('/home/frb/桌面/white/DeepCAD/data/cad_json')
 
 RECORD_FILE = os.path.join(DATA_DIR, 'balanced_train_val_test_split.json')
@@ -25,11 +25,11 @@ def write_step_file(shape, save_path):
     step_writer = STEPControl_Writer()
     # dd = step_writer.WS().TransferWriter().FinderProcess()
     # print(dd)
-    Interface_Static_SetCVal("write.step.schema", "AP203")
+    Interface_Static_SetCVal("write.step_path.schema", "AP203")
     step_writer.Transfer(shape, STEPControl_AsIs)
     status = step_writer.Write(save_path)
     if status != IFSelect_RetDone:
-        raise ValueError('write step failed')
+        raise ValueError('write step_path failed')
 
 
 def process_one(data_id):
@@ -39,13 +39,13 @@ def process_one(data_id):
     print('processing', data_id)
 
     # processing data
-    save_path = os.path.join(SAVE_DIR, data_id + '.step')
+    save_path = os.path.join(SAVE_DIR, data_id + '.step_path')
     json_path = os.path.join(RAW_DIR, data_id + '.json')
     with open(json_path, 'r') as f:
         data = json.load(f)
 
     try:
-        from source.dataProcess.cadlib.extrude import CADSequence
+        from source.cadlib.extrude import CADSequence
         cad_seq = CADSequence.from_dict(data)
         cad_seq.normalize()
         shape = create_CAD(cad_seq)
@@ -65,7 +65,7 @@ def process_one(data_id):
 
         write_step_file(shape, save_path)
     except Exception as e:
-        print('create step failed', data_id)
+        print('create step_path failed', data_id)
         return None
 
 

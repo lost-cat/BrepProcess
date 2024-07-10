@@ -5,17 +5,47 @@ from typing import List
 import dgl
 import h5py
 import numpy as np
-import occwl.io
 import torch
+from OCC.Core.BRepBndLib import brepbndlib_Add
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.STEPControl import STEPControl_Reader
+from OCC.Core.gp import gp_Trsf, gp_Pnt, gp_Vec
 from OCC.Extend.TopologyUtils import TopologyExplorer
 
-from source.dataProcess.dataStructure import EdgeInfo, FaceInfo
+from source.dataStructure import EdgeInfo, FaceInfo
 
 
-def get_path_by_data_id(data_id, prefix='none', ext='.step'):
+def get_path_by_data_id(data_id, prefix='none', ext='.step_path'):
     data_id = os.path.join(data_id.split('/')[0], data_id.split('/')[1])
     return os.path.join(prefix, data_id + ext)
+
+
+def normalize(shape, center=True):
+    bbox = Bnd_Box()
+    brepbndlib_Add(shape, bbox)
+    xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+    # Calculate the scale factor
+    scale_x = 2.0 / (xmax - xmin)
+    scale_y = 2.0 / (ymax - ymin)
+    scale_z = 2.0 / (zmax - zmin)
+    scale_factor = min(scale_x, scale_y, scale_z)
+    # Scale the shape
+    scale_trsf = gp_Trsf()
+    scale_trsf.SetScale(gp_Pnt(0, 0, 0), scale_factor)
+    scaled_shape = BRepBuilderAPI_Transform(shape, scale_trsf).Shape()
+    if center:
+        bbox = Bnd_Box()
+        brepbndlib_Add(scaled_shape, bbox)
+        new_xmin, new_ymin, new_zmin, new_xmax, new_ymax, new_zmax = bbox.Get()
+        translate_x = -0.5 * (new_xmax + new_xmin)
+        translate_y = -0.5 * (new_ymax + new_ymin)
+        translate_z = -0.5 * (new_zmax + new_zmin)
+        # Apply the translation
+        translate_trsf = gp_Trsf()
+        translate_trsf.SetTranslation(gp_Vec(translate_x, translate_y, translate_z))
+        scaled_shape = BRepBuilderAPI_Transform(scaled_shape, translate_trsf).Shape()
+    return scaled_shape
 
 
 def read_step(filepath):
@@ -26,7 +56,8 @@ def read_step(filepath):
     reader.ReadFile(filepath)
     reader.TransferRoot()
     shape = reader.OneShape()
-    topo_explorer = TopologyExplorer(shape)
+    shape_normalized = normalize(shape)
+    topo_explorer = TopologyExplorer(shape_normalized)
     faces = list(topo_explorer.faces())
     face_infos = get_face_infos(faces)
     edge_infos, face_adj = get_edge_infos(topo_explorer, face_infos, faces)
