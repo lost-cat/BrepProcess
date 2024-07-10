@@ -2,11 +2,11 @@ import argparse
 import json
 import os
 
+import tqdm
+
 from source.process import process_one
 
 data_dir = ''
-
-INVALID_IDS = []
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description='Process Fusion360 data')
@@ -23,10 +23,13 @@ if __name__ == '__main__':
         test_data_ids = data_ids['test']
         train_data_ids = data_ids['train']
 
-    for data_id in test_data_ids:
+    pbar_test = tqdm.tqdm(test_data_ids)
+    pbar_train = tqdm.tqdm(train_data_ids)
+    for data_id in pbar_test:
+        pbar_test.set_description('processing test' + data_id)
         process_one(data_id, save_dir, step_dir)
-        pass
-    for data_id in train_data_ids:
+    for data_id in pbar_train:
+        pbar_train.set_description('processing train' + data_id)
         process_one(data_id, save_dir, step_dir)
 
     pass
