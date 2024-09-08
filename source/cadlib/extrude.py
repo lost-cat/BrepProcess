@@ -7,12 +7,13 @@ from .math_utils import cartesian2polar, polar2cartesian, polar_parameterization
 
 class CoordSystem(object):
     """Local coordinate system for sketch plane."""
+
     def __init__(self, origin, theta, phi, gamma, y_axis=None, is_numerical=False):
         self.origin = origin
-        self._theta = theta # 0~pi
-        self._phi = phi     # -pi~pi
-        self._gamma = gamma # -pi~pi
-        self._y_axis = y_axis # (theta, phi)
+        self._theta = theta  # 0~pi
+        self._phi = phi  # -pi~pi
+        self._gamma = gamma  # -pi~pi
+        self._y_axis = y_axis  # (theta, phi)
         self.is_numerical = is_numerical
 
     @property
@@ -58,10 +59,10 @@ class CoordSystem(object):
     def numericalize(self, n=256):
         """NOTE: shall only be called after normalization"""
         # assert np.max(self.origin) <= 1.0 and np.min(self.origin) >= -1.0
-        self.origin = ((self.origin + 1.0) / 2 * n).round().clip(min=0, max=n-1).astype(np.int)
+        self.origin = ((self.origin + 1.0) / 2 * n).round().clip(min=0, max=n - 1).astype(int)
         tmp = np.array([self._theta, self._phi, self._gamma])
         self._theta, self._phi, self._gamma = ((tmp / np.pi + 1.0) / 2 * n).round().clip(
-            min=0, max=n-1).astype(np.int)
+            min=0, max=n - 1).astype(int)
         self.is_numerical = True
 
     def denumericalize(self, n=256):
@@ -77,6 +78,7 @@ class CoordSystem(object):
 class Extrude(object):
     """Single extrude operation with corresponding a sketch profile.
     NOTE: only support single sketch profile. Extrusion with multiple profiles is decomposed."""
+
     def __init__(self, profile: Profile, sketch_plane: CoordSystem,
                  operation, extent_type, extent_one, extent_two, sketch_pos, sketch_size):
         """
@@ -90,7 +92,7 @@ class Extrude(object):
             sketch_pos (np.array): the global 3D position of sketch starting point
             sketch_size (float): size of the sketch
         """
-        self.profile = profile # normalized sketch
+        self.profile = profile  # normalized sketch
         self.sketch_plane = sketch_plane
         self.operation = operation
         self.extent_type = extent_type
@@ -184,16 +186,17 @@ class Extrude(object):
     def numericalize(self, n=256):
         """quantize the representation.
         NOTE: shall only be called after CADSequence. normalize (the shape lies in unit cube, -1~1)"""
-        assert -2.0 <= self.extent_one <= 2.0 and -2.0 <= self.extent_two <= 2.0
+        if self.operation != EXTRUDE_OPERATIONS.index("CutFeatureOperation"):
+            assert -2.0 <= self.extent_one <= 2.0 and -2.0 <= self.extent_two <= 2.0
         self.profile.numericalize(n)
         self.sketch_plane.numericalize(n)
-        self.extent_one = ((self.extent_one + 1.0) / 2 * n).round().clip(min=0, max=n-1).astype(np.int) 
-        self.extent_two = ((self.extent_two + 1.0) / 2 * n).round().clip(min=0, max=n-1).astype(np.int) 
+        self.extent_one = ((self.extent_one + 1.0) / 2 * n).round().clip(min=0, max=n - 1).astype(int)
+        self.extent_two = ((self.extent_two + 1.0) / 2 * n).round().clip(min=0, max=n - 1).astype(int)
         self.operation = int(self.operation)
         self.extent_type = int(self.extent_type)
 
-        self.sketch_pos = ((self.sketch_pos + 1.0) / 2 * n).round().clip(min=0, max=n-1).astype(np.int) 
-        self.sketch_size = (self.sketch_size / 2 * n).round().clip(min=0, max=n-1).astype(np.int) 
+        self.sketch_pos = ((self.sketch_pos + 1.0) / 2 * n).round().clip(min=0, max=n - 1).astype(int)
+        self.sketch_size = (self.sketch_size / 2 * n).round().clip(min=0, max=n - 1).astype(int)
 
     def denumericalize(self, n=256):
         """de-quantize the representation."""
@@ -219,7 +222,7 @@ class Extrude(object):
         ext_param = list(sket_plane_orientation) + list(self.sketch_pos) + [self.sketch_size] + \
                     [self.extent_one, self.extent_two, self.operation, self.extent_type]
         ext_vec = np.array([EXT_IDX, *[PAD_VAL] * N_ARGS_SKETCH, *ext_param])
-        vec = np.concatenate([profile_vec[:-1], ext_vec[np.newaxis], profile_vec[-1:]], axis=0) # NOTE: last one is EOS
+        vec = np.concatenate([profile_vec[:-1], ext_vec[np.newaxis], profile_vec[-1:]], axis=0)  # NOTE: last one is EOS
         if pad:
             pad_len = max_n_loops * max_len_loop - vec.shape[0]
             vec = np.concatenate([vec, EOS_VEC[np.newaxis].repeat(pad_len, axis=0)], axis=0)
@@ -228,6 +231,7 @@ class Extrude(object):
 
 class CADSequence(object):
     """A CAD modeling sequence, a series of extrude operations."""
+
     def __init__(self, extrude_seq, bbox=None):
         self.seq = extrude_seq
         self.bbox = bbox
@@ -253,7 +257,7 @@ class CADSequence(object):
         ext_seq = []
         for i in range(len(ext_indices) - 1):
             start, end = ext_indices[i], ext_indices[i + 1]
-            ext_seq.append(Extrude.from_vector(vec[start+1:end+1], is_numerical, n))
+            ext_seq.append(Extrude.from_vector(vec[start + 1:end + 1], is_numerical, n))
         cad_seq = CADSequence(ext_seq)
         return cad_seq
 
@@ -271,9 +275,11 @@ class CADSequence(object):
             vec = item.to_vector(max_n_loops, max_len_loop, pad=False)
             if vec is None:
                 return None
-            vec = vec[:-1] # last one is EOS, removed
+            vec = vec[:-1]  # last one is EOS, removed
             vec_seq.append(vec)
 
+        if len(vec_seq) == 0:
+            return None
         vec_seq = np.concatenate(vec_seq, axis=0)
         vec_seq = np.concatenate([vec_seq, EOS_VEC[np.newaxis]], axis=0)
 
@@ -307,7 +313,7 @@ class CADSequence(object):
             # random transform sketch
             scale = random.uniform(0.8, 1.2)
             item.profile.transform(-np.array([128, 128]), scale)
-            translate = np.array([random.randint(-5, 5), random.randint(-5, 5)], dtype=np.int) + 128
+            translate = np.array([random.randint(-5, 5), random.randint(-5, 5)], dtype=int) + 128
             item.profile.transform(translate, 1)
 
             # random transform and scale extrusion

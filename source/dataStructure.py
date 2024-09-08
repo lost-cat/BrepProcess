@@ -126,6 +126,7 @@ class EdgeInfo:
         self.faces = []
         self.face_hashes = []
         self.face_tags = []
+
         self.edge_type = get_edge_type(edge)
         self.length = get_edge_length(edge)
         self.radius = get_circle_radius(edge)

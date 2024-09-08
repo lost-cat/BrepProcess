@@ -1,7 +1,7 @@
+
 import math
 import os
 from typing import List
-
 import dgl
 import h5py
 import numpy as np
@@ -11,6 +11,7 @@ from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.gp import gp_Trsf, gp_Pnt, gp_Vec
+from dgl import DGLGraph
 from occwl.compound import Compound
 from occwl.entity_mapper import EntityMapper
 from occwl.graph import face_adjacency
@@ -57,6 +58,7 @@ def read_step(filepath, normalized=False):
         print('file not exists', filepath)
         raise Exception()
     compound = occwl.io.load_single_compound_from_step(filepath)
+
     if normalized:
         compound_scaled = compound.scale_to_box(1.0)
         return compound_scaled
@@ -110,6 +112,26 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
     uv_edge_attrs = np.array([edge_info.edge_uv_attr for edge_info in edge_infos])
     dgl_graph.edata['uv_attrs'] = torch.from_numpy(uv_edge_attrs)
     return dgl_graph
+
+
+def extract_dgl_graph_from_step(step_path) -> tuple[None, bool] | tuple[DGLGraph, bool]:
+    try:
+        shape = read_step(step_path, normalized=True)
+        face_infos, edge_infos = get_face_edge_info(shape)
+    except Exception as e:
+        print('invalid id', step_path, e)
+        return None, False
+
+    # Check if the data is valid
+    face_list = list(face_infos.values())
+    edge_list = list(edge_infos.values())
+    is_valid = check_data(face_list, edge_list)
+    if not is_valid:
+        print('invalid data', step_path)
+        return None, False
+
+    dgl_graph = convert_to_dgl_graph(face_list, edge_list)
+    return dgl_graph, True
 
 
 def write_h5file(h5_path, face_infos: List[FaceInfo], edge_infos: List[EdgeInfo]):
