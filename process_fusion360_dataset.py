@@ -26,7 +26,7 @@ if __name__ == '__main__':
     save_dir = os.path.join(data_dir, 'dgl')
     step_dir = os.path.join(data_dir, 'step_generated')
     invalid_ids = []
-    # process_one('27839_4a077326_0010', save_dir, step_dir)
+    # process_one('27839_4a077326_0010', save_graph_dir, step_dir)
     with open(json_file, 'r') as f:
         data_ids = json.load(f)
         test_data_ids = data_ids['test']

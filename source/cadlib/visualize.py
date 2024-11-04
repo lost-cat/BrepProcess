@@ -1,10 +1,15 @@
+import os
 from copy import copy
-
+from plyfile import PlyData, PlyElement
+import trimesh
 from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse, BRepAlgoAPI_Common
+from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Core.BRepBuilderAPI import (BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire)
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakePrism
+from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.GC import GC_MakeArcOfCircle
 from OCC.Core.gp import gp_Pnt, gp_Dir, gp_Circ, gp_Pln, gp_Vec, gp_Ax3, gp_Ax2
+from trimesh.sample import sample_surface
 
 from .curves import *
 from .extrude import *
@@ -34,7 +39,7 @@ def create_CAD(cad_seq: CADSequence):
 
 def create_by_extrude(extrude_op: Extrude):
     """create a solid body from Extrude instance."""
-    profile = copy(extrude_op.profile) # use copy to prevent changing extrude_op internally
+    profile = copy(extrude_op.profile)  # use copy to prevent changing extrude_op internally
     profile.denormalize(extrude_op.sketch_size)
 
     sketch_plane = copy(extrude_op.sketch_plane)
@@ -73,7 +78,7 @@ def create_loop_3d(loop: Loop, sketch_plane: CoordSystem):
     topo_wire = BRepBuilderAPI_MakeWire()
     for curve in loop.children:
         topo_edge = create_edge_3d(curve, sketch_plane)
-        if topo_edge == -1: # omitted
+        if topo_edge == -1:  # omitted
             continue
         topo_wire.Add(topo_edge)
     return topo_wire.Wire()
@@ -112,17 +117,27 @@ def point_local2global(point, sketch_plane: CoordSystem, to_gp_Pnt=True):
     return g_point
 
 
-# def CADsolid2pc(shape, n_points, name=None):
-#     """convert opencascade solid to point clouds"""
-#     bbox = Bnd_Box()
-#     brepbndlib_Add(shape, bbox)
-#     if bbox.IsVoid():
-#         raise ValueError("box check failed")
-#
-#     if name is None:
-#         name = random.randint(100000, 999999)
-#     write_stl_file(shape, "tmp_out_{}.stl".format(name))
-#     out_mesh = trimesh.load("tmp_out_{}.stl".format(name))
-#     os.system("rm tmp_out_{}.stl".format(name))
-#     out_pc, _ = sample_surface(out_mesh, n_points)
-#     return out_pc
+def CADsolid2pc(shape, n_points, name=None):
+    """convert opencascade solid to point clouds"""
+    bbox = Bnd_Box()
+    brepbndlib_Add(shape, bbox)
+    if bbox.IsVoid():
+        raise ValueError("box check failed")
+
+    if name is None:
+        name = random.randint(100000, 999999)
+    from OCC.Extend.DataExchange import write_stl_file
+    write_stl_file(shape, "tmp_out_{}.stl".format(name))
+    out_mesh = trimesh.load("tmp_out_{}.stl".format(name))
+    os.system("rm tmp_out_{}.stl".format(name))
+    out_pc, _ = sample_surface(out_mesh, n_points)
+    return out_pc
+
+
+def write_ply(pc, filename, text=False):
+
+    points = [(pc[i, 0], pc[i, 1], pc[i, 2]) for i in range(pc.shape[0])]
+    vertex = np.array(points, dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
+    el = PlyElement.describe(vertex, 'vertex',comments=['vertices'])
+    with open(filename, 'wb') as f:
+        PlyData([el], text=text).write(f)

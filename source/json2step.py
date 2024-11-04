@@ -23,13 +23,11 @@ INVALID_IDS = ['0011/00116212']
 
 def write_step_file(shape, save_path):
     step_writer = STEPControl_Writer()
-    # dd = step_writer.WS().TransferWriter().FinderProcess()
-    # print(dd)
     Interface_Static_SetCVal("write.step_path.schema", "AP203")
     step_writer.Transfer(shape, STEPControl_AsIs)
     status = step_writer.Write(save_path)
     if status != IFSelect_RetDone:
-        raise ValueError('write step_path failed')
+        raise ValueError('write step failed')
 
 
 def process_one(data_id):
@@ -39,7 +37,7 @@ def process_one(data_id):
     print('processing', data_id)
 
     # processing data
-    save_path = os.path.join(SAVE_DIR, data_id + '.step_path')
+    save_path = os.path.join(SAVE_DIR, data_id + '.step')
     json_path = os.path.join(RAW_DIR, data_id + '.json')
     with open(json_path, 'r') as f:
         data = json.load(f)

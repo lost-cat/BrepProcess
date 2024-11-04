@@ -1,4 +1,3 @@
-
 import math
 import os
 from typing import List
@@ -114,15 +113,20 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
     return dgl_graph
 
 
-def extract_dgl_graph_from_step(step_path) -> tuple[None, bool] | tuple[DGLGraph, bool]:
+def extract_dgl_graph_from_step(step_path, shape=None) -> tuple[None, bool] | tuple[DGLGraph, bool]:
+    if shape is None:
+        try:
+            shape = read_step(step_path, normalized=True)
+        except Exception as e:
+            print('invalid id', step_path, e)
+            return None, False
     try:
-        shape = read_step(step_path, normalized=True)
         face_infos, edge_infos = get_face_edge_info(shape)
     except Exception as e:
-        print('invalid id', step_path, e)
+        print('extract feature failed', e)
         return None, False
 
-    # Check if the data is valid
+
     face_list = list(face_infos.values())
     edge_list = list(edge_infos.values())
     is_valid = check_data(face_list, edge_list)
