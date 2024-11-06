@@ -116,7 +116,7 @@ def convert_to_dgl_graph(face_infos: List[FaceInfo], edge_infos: List[EdgeInfo])
 def extract_dgl_graph_from_step(step_path, shape=None) -> tuple[None, bool] | tuple[DGLGraph, bool]:
     if shape is None:
         try:
-            shape = read_step(step_path, normalized=True)
+            shape = read_step(step_path, normalized=False)
         except Exception as e:
             print('invalid id', step_path, e)
             return None, False
